@@ -1,0 +1,16 @@
+// serviceFactory.js
+
+const { GptService } = require('./services/gpt-service');
+const { RagService } = require('./services/rag-service');
+
+function createService(serviceType) {
+  if (serviceType === 'RagService') {
+    return new RagService();
+  } else if (serviceType === 'GptService') {
+    return new GptService();
+  } else {
+    throw new Error(`Unknown service type: ${serviceType}`);
+  }
+}
+
+module.exports = { createService };

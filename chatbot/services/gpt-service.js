@@ -1,149 +1,81 @@
+// services/gpt-service.js
+
 require('colors');
 const EventEmitter = require('events');
 const OpenAI = require('openai');
 const tools = require('../functions/function-manifest');
+const { fetchExpenseData } = require('./rag-service'); // Import fetchExpenseData function
 
-// Import all functions included in function manifest
-// Note: the function name and file name must be the same
-const availableFunctions = {};
-tools.forEach((tool) => {
-  let functionName = tool.function.name;
-  availableFunctions[functionName] = require(`../functions/${functionName}`);
-});
+const openai = new OpenAI();
+openai.apiKey = process.env.OPENAI_API_KEY;
 
 class GptService extends EventEmitter {
-  constructor() {
-    super();
-    this.openai = new OpenAI();
-    this.userContext = [
-      { 'role': 'system', 'content': 'You are banking assistant who will help the customer with their banking needs. You have a youthful and cheery personality. Keep your responses as brief as possible but make every attempt to keep the caller on the phone without being rude. Don\'t ask more than 1 question at a time. Don\'t make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous. Speak out all prices to include the currency. You must add a \'•\' symbol every 5 to 10 words at natural pauses where your response can be split for text to speech. Do not use emojis' },
-      { 'role': 'assistant', 'content': 'Hello! How can I help you today?' },
-    ],
-    this.partialResponseIndex = 0;
-  }
-
-  // Add the callSid to the chat context in case
-  // ChatGPT decides to transfer the call.
-  setCallSid (callSid) {
-    this.userContext.push({ 'role': 'system', 'content': `callSid: ${callSid}` });
-  }
-
-  validateFunctionArgs (args) {
-    try {
-      return JSON.parse(args);
-    } catch (error) {
-      console.log('Warning: Double function arguments returned by OpenAI:', args);
-      // Seeing an error where sometimes we have two sets of args
-      if (args.indexOf('{') != args.lastIndexOf('{')) {
-        return JSON.parse(args.substring(args.indexOf(''), args.indexOf('}') + 1));
-      }
-    }
-  }
-
-  updateUserContext(name, role, text) {
-    if (name !== 'user') {
-      this.userContext.push({ 'role': role, 'name': name, 'content': text });
-    } else {
-      this.userContext.push({ 'role': role, 'content': text });
-    }
-  }
-
-  async completion(text, interactionCount, role = 'user', name = 'user') {
-    this.updateUserContext(name, role, text);
-
-    // Step 1: Send user transcription to Chat GPT
-    const stream = await this.openai.chat.completions.create({
-      model: 'gpt-4-1106-preview',
-      messages: this.userContext,
-      tools: tools,
-      stream: true,
-    });
-
-    let completeResponse = '';
-    let partialResponse = '';
-    let functionName = '';
-    let functionArgs = '';
-    let finishReason = '';
-
-    function collectToolInformation(deltas) {
-      let name = deltas.tool_calls[0]?.function?.name || '';
-      if (name != '') {
-        functionName = name;
-      }
-      let args = deltas.tool_calls[0]?.function?.arguments || '';
-      if (args != '') {
-        // args are streamed as JSON string so we need to concatenate all chunks
-        functionArgs += args;
-      }
+    constructor() { // Defines the goals of the GPT-3 Model
+        super();
+        this.userContext = [
+            { role: 'system', content: 'You are a banking assistant who can help with customer expenses and transactions.' },
+            { role: 'assistant', content: 'Hello! How can I help you today?' },
+        ];
+        this.partialResponseIndex = 0;
     }
 
-    for await (const chunk of stream) {
-      let content = chunk.choices[0]?.delta?.content || '';
-      let deltas = chunk.choices[0].delta;
-      finishReason = chunk.choices[0].finish_reason;
+    /*
+    This file defines the things that should happen when the user interact with the assistant.
 
-      // Step 2: check if GPT wanted to call a function
-      if (deltas.tool_calls) {
-        // Step 3: Collect the tokens containing function data
-        collectToolInformation(deltas);
-      }
+    Implementing RAG responses:
+    TODO: Retrieve additional user data through the embedding matrix 
+    TODO: Augment the prompt with the data retrieved
+    TODO: Use the augmented prompt to generate a response
+    */
 
-      // need to call function on behalf of Chat GPT with the arguments it parsed from the conversation
-      if (finishReason === 'tool_calls') {
-        // parse JSON string of args into JSON object
-
-        const functionToCall = availableFunctions[functionName];
-        const validatedArgs = this.validateFunctionArgs(functionArgs);
-        
-        // Say a pre-configured message from the function manifest
-        // before running the function.
-        const toolData = tools.find(tool => tool.function.name === functionName);
-        const say = toolData.function.say;
-
-        this.emit('gptreply', {
-          partialResponseIndex: null,
-          partialResponse: say
-        }, interactionCount);
-
-        let functionResponse = await functionToCall(validatedArgs);
-
-        // Step 4: send the info on the function call and function response to GPT
-        this.updateUserContext(functionName, 'function', functionResponse);
-        
-        // call the completion function again but pass in the function response to have OpenAI generate a new assistant response
-        await this.completion(functionResponse, interactionCount, 'function', functionName);
-      } else {
-        // We use completeResponse for userContext
-        completeResponse += content;
-        // We use partialResponse to provide a chunk for TTS
-        partialResponse += content;
-        // Emit last partial response and add complete response to userContext
-        if (content.trim().slice(-1) === '•' || finishReason === 'stop') {
-          const gptReply = { 
-            partialResponseIndex: this.partialResponseIndex,
-            partialResponse
-          };
-
-          this.emit('gptreply', gptReply, interactionCount);
-          this.partialResponseIndex++;
-          partialResponse = '';
-        }
-      }
+    /** ALWAYS PULL DATA FROM THE EMBEDDED MATRIX
+     * @param {string} text - The user input text.
+     * @returns {boolean} - True if the query is related to expenses.
+     */
+    shouldUseRag(text) { //YES you should
+        const expenseKeywords = ["expenses", "spending", "transactions", "total spent", "expenditure", "cost", "money", "spent", "last week"];
+        return expenseKeywords.some(keyword => text.toLowerCase().includes(keyword));
     }
 
-    // // Condense backlogged responses into a single new response
-    // if (completeResponse.trim().length > 0) {
-    //   console.log('GPT -> Regenerating response to clear backlog'.blue);
-    //   this.emit('gptreply', {
-    //     partialResponseIndex: this.partialResponseIndex,
-    //     partialResponse: completeResponse
-    //   }, interactionCount);
-    //   this.partialResponseIndex++;
-    // }
-
-    this.userContext.push({'role': 'assistant', 'content': completeResponse});
-    console.log(`GPT -> user context length: ${this.userContext.length}`.green);
+    /**
+     * Processes the user's input, and if expense-related, uses fetchExpenseData to get a response.
+     * @param {string} text - The user's input text.
+     * @param {number} interactionCount - Counter for the interaction.
+     * @param {string} role - The role of the user or assistant.
+     * @param {string} name - The name of the user or assistant.
+     */
+    async completion(text, interactionCount, role = 'user', name = 'user') {
+      this.updateUserContext(name, role, text);
+  
+      // Force RAG to be triggered for every query temporarily for testing
+      console.log("RAG Force-Triggered for query:", text);
+  
+      try {
+          // Use fetchExpenseData to handle the RAG workflow
+          const ragResponse = await fetchExpenseData(text);
+          console.log("RAG Response Retrieved:", ragResponse);
+  
+          this.updateUserContext("RAG", "function", ragResponse);
+          await this.completion(ragResponse, interactionCount, "function", "RAG");
+          return;
+      } catch (error) {
+          console.error("Error during RAG process:", error);
+      }
+  
+      // (Commented out regular response processing for testing)
+      // const stream = await openai.chat.completions.create({
+      //     model: 'gpt-4-1106-preview',
+      //     messages: this.userContext,
+      //     tools: tools,
+      //     stream: true,
+      // });
+  
+      // Regular response handling...
   }
+
+    updateUserContext(name, role, text) {
+        this.userContext.push({ role, name, content: text });
+    }
 }
 
 module.exports = { GptService };

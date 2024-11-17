@@ -1,0 +1,70 @@
+{
+    "id": "john_brown",
+    "name": "John Brown",
+    "accounts": [
+      {
+        "type": "savings",
+        "accountNumber": "1234567890",
+        "openDate": "2023-09-01",
+        "transactions": [
+          {
+            "date": "2023-09-05",
+            "description": "Deposit",
+            "amount": 5000
+          },
+          {
+            "date": "2023-09-15",
+            "description": "ATM Withdrawal",
+            "amount": -200
+          },
+          {
+            "date": "2023-09-25",
+            "description": "Interest",
+            "amount": 5
+          }
+        ]
+      },
+      {
+        "type": "checking",
+        "accountNumber": "0987654321",
+        "openDate": "2023-09-01",
+        "transactions": [
+          {
+            "date": "2023-09-07",
+            "description": "Direct Deposit",
+            "amount": 3000
+          },
+          {
+            "date": "2023-09-10",
+            "description": "Grocery Store",
+            "amount": -150
+          },
+          {
+            "date": "2023-09-20",
+            "description": "Utility Bill",
+            "amount": -100
+          }
+        ]
+      }
+    ],
+    "creditCards": [
+      {
+        "cardNumber": "4111111111111111",
+        "openDate": "2023-09-01",
+        "transactions": [
+          {
+            "date": "2023-09-08",
+            "description": "Online Purchase",
+            "amount": -250
+          },
+          {
+            "date": "2023-09-18",
+            "description": "Restaurant",
+            "amount": -75
+          }
+        ],
+        "balance": 325
+      }
+    ]
+  }
+  
