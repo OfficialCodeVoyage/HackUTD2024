@@ -1,6 +1,5 @@
-"""
-Utility function for embedding using the OpenAI API.
-"""
+# backend/utils.py
+
 import openai
 from chromadb.api.types import EmbeddingFunction
 

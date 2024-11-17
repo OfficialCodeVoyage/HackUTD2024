@@ -1,3 +1,5 @@
+// function-manifest.js
+
 // create metadata for all the available functions to pass to completions API
 const tools = [
   {
@@ -60,7 +62,7 @@ const tools = [
         properties: {
           status: {
             type: 'string',
-            description: 'Whether or not the customer call was successfully transfered'
+            description: 'Whether or not the customer call was successfully transferred'
           },
         }
       }
