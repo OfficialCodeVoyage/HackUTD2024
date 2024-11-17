@@ -12,6 +12,7 @@
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-scroll-area": "^1.2.1",
     "@shadcn/ui": "^0.0.4",
+    "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.460.0",
     "next": "15.0.3",

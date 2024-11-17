@@ -3,8 +3,9 @@
 import { useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { mockCalls } from '../../mockCalls'
 import { Phone, User, Clock, Calendar, MessageSquare, Ticket } from 'lucide-react'
+import { Call } from '@/app/types/Icall';
+import { ActionTicket } from '@/app/types/IactionTicket';
 import {
   Card,
   CardContent,
@@ -20,55 +21,25 @@ import {
   AccordionTrigger,
 } from "@/app/components/ui/accordion"
 
-//testdata for now
-const liveTranscript = [
-    {
-        id: 1,
-        speaker: 'John',
-        message: 'Hello, how can I help you today?',
-        timestamp: new Date(),
-    },
-    {
-        id: 2,
-        speaker: 'Jane',
-        message: 'I am having an issue with my account.',
-        timestamp: new Date(),
-    },
-    {
-        id: 3,
-        speaker: 'John',
-        message: 'I am sorry to hear that. Can you please provide more details?',
-        timestamp: new Date(),
-    },
-    {
-        id: 4,
-        speaker: 'Jane',
-        message: 'Sure, I am unable to login to my account since yesterday.',
-        timestamp: new Date(),
-    },
-]
-
-const sampleTickets = [
-    {
-        id: 1,
-        title: 'Open New Account for John Doe',
-        status: 'in-progress',
-    },
-    {
-        id: 2,
-        title: 'Open New Account for Jane Smith',
-        status: 'in-progress',
-    },
-]
-
 export default function CallDetails() {
   const { id } = useParams() as { id: string }
-  const [call, setCall] = useState<typeof mockCalls[0] | undefined>(undefined)
+  const [call, setCall] = useState<Call | undefined>(undefined)
 
   useEffect(() => {
+    async function fetchCall() {
+      try {
+        const response = await fetch(`http://localhost:4000/api/calls/${id}`); // External server URL
+        const data = await response.json();
+        setCall(data);
+      } catch (error) {
+        console.error('Error fetching call:', error);
+      }
+    }
+
     if (id) {
-      const callData = mockCalls.find(call => call.id === parseInt(id as string))
-      setCall(callData)
+      fetchCall();
+      const interval = setInterval(fetchCall, 2000); // Fetch every 2 seconds
+      return () => clearInterval(interval);
     }
   }, [id])
 
@@ -86,7 +57,7 @@ export default function CallDetails() {
                 <CardTitle>Call Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>This is where the call summery will go. It summerizes the call and is updated on page reload</p>
+                <p>{call.summary}</p>
               </CardContent>
             </Card>
             <Card className="mt-6">
@@ -95,12 +66,12 @@ export default function CallDetails() {
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[600px] w-full pr-4">
-                  {liveTranscript.map((message) => (
-                    <div key={message.id} className={`flex mb-4 ${message.speaker === 'John' ? 'justify-start' : 'justify-end'}`}>
-                      <div className={`max-w-[70%] p-3 rounded-lg ${message.speaker === 'John' ? 'bg-blue-100' : 'bg-green-100'}`}>
-                        <p className="font-semibold">{message.speaker}</p>
-                        <p>{message.message}</p>
-                        <p className="text-xs text-gray-500 mt-1">{format(message.timestamp, 'HH:mm:ss')}</p>
+                  {call.transcript?.map((message: string, index: number) => (
+                    <div key={index} className={`flex mb-4 ${index % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                      <div className={`max-w-[70%] p-3 rounded-lg ${index % 2 === 0 ? 'bg-blue-100' : 'bg-green-100'}`}>
+                        <p className="font-semibold">{index % 2 === 0 ? 'John' : 'Jane'}</p>
+                        <p>{message}</p>
+                        <p className="text-xs text-gray-500 mt-1">{format(new Date(), 'HH:mm:ss')}</p>
                       </div>
                     </div>
                   ))}
@@ -125,15 +96,15 @@ export default function CallDetails() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Calendar className="h-5 w-5 text-gray-400" />
-                    <span>{format(call.startTime, 'MMMM d, yyyy')}</span>
+                    <span>{format(new Date(call.startTime), 'MMMM d, yyyy')}</span>
                   </div>
                   {/* <div className="flex items-center space-x-2">
                     <Clock className="h-5 w-5 text-gray-400" />
-                    <span>{format(call.startTime, 'HH:mm')} - {format(call.endTime, 'HH:mm')}</span>
+                    <span>{format(new Date(call.startTime), 'HH:mm')} - {format(new Date(call.endTime), 'HH:mm')}</span>
                   </div> */}
                   <div className="flex items-center space-x-2">
                     <MessageSquare className="h-5 w-5 text-gray-400" />
-                    <span>{liveTranscript.length} messages</span>
+                    <span>{call.transcript?.length} messages</span>
                   </div>
                   <Badge variant={call.status === 'completed' ? 'secondary' : 'destructive'}>
                     {call.status}
@@ -147,7 +118,7 @@ export default function CallDetails() {
               </CardHeader>
               <CardContent>
                 <Accordion type="single" collapsible className="w-full">
-                  {sampleTickets.map((ticket, index) => (
+                  {call.tickets?.map((ticket: ActionTicket, index: number) => (
                     <AccordionItem value={`item-${index}`} key={ticket.id}>
                       <AccordionTrigger>
                         <div className="flex items-center space-x-2">

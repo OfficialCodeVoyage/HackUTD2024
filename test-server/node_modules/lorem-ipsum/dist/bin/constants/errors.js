@@ -1,0 +1,9 @@
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.CANNOT_DETERMINE_PLATFORM = void 0;
+var CANNOT_DETERMINE_PLATFORM = "Could not determine host operating system.";
+exports.CANNOT_DETERMINE_PLATFORM = CANNOT_DETERMINE_PLATFORM;
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJDQU5OT1RfREVURVJNSU5FX1BMQVRGT1JNIl0sInNvdXJjZXMiOlsiLi4vLi4vLi4vc3JjL2Jpbi9jb25zdGFudHMvZXJyb3JzLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImV4cG9ydCBjb25zdCBDQU5OT1RfREVURVJNSU5FX1BMQVRGT1JNID1cbiAgXCJDb3VsZCBub3QgZGV0ZXJtaW5lIGhvc3Qgb3BlcmF0aW5nIHN5c3RlbS5cIjtcbiJdLCJtYXBwaW5ncyI6Ijs7Ozs7O0FBQU8sSUFBTUEseUJBQXlCLEdBQ3BDLDRDQURLIn0=
