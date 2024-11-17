@@ -14,11 +14,11 @@ const openai = new OpenAI({
 class EmbeddingService extends EventEmitter {
   constructor() {
     super();
-    // Define the embeddings directory and file path
     this.embeddingsDir = path.join(__dirname, '..', 'embeddings');
     this.embeddingsFilePath = path.join(this.embeddingsDir, 'embeddings.json');
     this.embeddingsData = this.loadEmbeddings();
     this.openai = openai;
+    this.MAX_TOKENS = 7000;  // Model's token limit
   }
 
   ensureEmbeddingsDirExists() {
@@ -29,7 +29,6 @@ class EmbeddingService extends EventEmitter {
 
   loadEmbeddings() {
     this.ensureEmbeddingsDirExists();
-
     if (fs.existsSync(this.embeddingsFilePath)) {
       const data = fs.readFileSync(this.embeddingsFilePath, 'utf-8');
       return JSON.parse(data);
@@ -39,51 +38,93 @@ class EmbeddingService extends EventEmitter {
 
   saveEmbeddings() {
     this.ensureEmbeddingsDirExists();
-
     fs.writeFileSync(
       this.embeddingsFilePath,
       JSON.stringify(this.embeddingsData, null, 2)
     );
   }
 
-  async updateUserData(documents) {
-    // documents: Array of { id, document, metadata }
+  estimateTokens(text) {
+    return text.split(' ').length;
+  }
+
+  chunkDocuments(documents, maxTokens) {
+    const chunks = [];
+    let currentChunk = [];
+    let currentTokens = 0;
+
     for (const doc of documents) {
-      // Generate embedding for the document
-      const response = await this.openai.embeddings.create({
-        model: 'text-embedding-ada-002',
-        input: doc.document,
-      });
-      const embedding = response.data[0].embedding;
+        const docTokens = this.estimateTokens(doc.document);
 
-      // Check if the document already exists
-      const existingIndex = this.embeddingsData.findIndex(
-        (item) => item.id === doc.id
-      );
+        // If a single document exceeds the max token limit, log and handle it separately
+        if (docTokens > maxTokens) {
+            console.warn(`Document ${doc.id} exceeds max token limit by itself (${docTokens} tokens).`);
+            // Handle oversized single document (e.g., further split document if feasible)
+            continue; // Skipping oversized documents for now
+        }
 
-      const embeddingEntry = {
-        id: doc.id,
-        document: doc.document,
-        metadata: doc.metadata,
-        embedding: embedding,
-      };
+        // If adding this document would exceed the max token limit, start a new chunk
+        if (currentTokens + docTokens > maxTokens) {
+            console.log(`Creating new chunk with ${currentTokens} tokens.`);
+            chunks.push(currentChunk);
+            currentChunk = [];
+            currentTokens = 0;
+        }
 
-      if (existingIndex !== -1) {
-        // Update existing entry
-        this.embeddingsData[existingIndex] = embeddingEntry;
-      } else {
-        // Add new entry
-        this.embeddingsData.push(embeddingEntry);
+        currentChunk.push(doc);
+        currentTokens += docTokens;
+    }
+
+    if (currentChunk.length > 0) {
+        console.log(`Final chunk created with ${currentTokens} tokens.`);
+        chunks.push(currentChunk);
+    }
+
+    return chunks;
+}
+
+  async updateUserData(documents) {
+    const documentChunks = this.chunkDocuments(documents, this.MAX_TOKENS - 500); // Buffer to avoid token overflow
+
+    for (const chunk of documentChunks) {
+      const combinedInput = chunk.map(doc => doc.document).join(' ');
+
+      if (this.estimateTokens(combinedInput) > this.MAX_TOKENS) {
+        console.error('Chunk still exceeds token limit after chunking.');
+        continue;
+      }
+
+      try {
+        const response = await this.openai.embeddings.create({
+          model: 'text-embedding-ada-002',
+          input: combinedInput,
+        });
+
+        const embeddings = response.data.map(res => res.embedding);
+
+        chunk.forEach((doc, index) => {
+          const existingIndex = this.embeddingsData.findIndex(item => item.id === doc.id);
+          const embeddingEntry = {
+            id: doc.id,
+            document: doc.document,
+            metadata: doc.metadata,
+            embedding: embeddings[index],
+          };
+
+          if (existingIndex !== -1) {
+            this.embeddingsData[existingIndex] = embeddingEntry;
+          } else {
+            this.embeddingsData.push(embeddingEntry);
+          }
+        });
+
+      } catch (error) {
+        console.error('Error creating embedding:', error);
       }
     }
 
-    // Save embeddings to file
     this.saveEmbeddings();
-
-    // Emit an event indicating that embeddings have been updated
     this.emit('embeddingsUpdated', { documents });
-
-    // Output the mappings
     console.log('Embeddings updated and saved.');
     console.log('Current Embeddings:', this.embeddingsData);
   }
@@ -97,26 +138,20 @@ class EmbeddingService extends EventEmitter {
   }
 
   async retrieveRelevantDocuments(queryText, topK = 5) {
-    // Generate embedding for the query text
     const response = await this.openai.embeddings.create({
       model: 'text-embedding-ada-002',
       input: queryText,
     });
     const queryEmbedding = response.data[0].embedding;
 
-    // Compute similarity scores
     const similarities = this.embeddingsData.map((item) => {
       const similarity = this.cosineSimilarity(queryEmbedding, item.embedding);
       return { ...item, similarity };
     });
 
-    // Sort by similarity score in descending order
     similarities.sort((a, b) => b.similarity - a.similarity);
-
-    // Return the top K most similar documents
     const topDocuments = similarities.slice(0, topK);
 
-    // Emit an event with the retrieved documents
     this.emit('documentsRetrieved', { queryText, topDocuments });
 
     return topDocuments;
