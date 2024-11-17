@@ -26,36 +26,6 @@ Banking should be inclusive, accessible, and intuitive for everyone, regardless 
 
 ---
 
-## **Challenges We Ran Into** ⚡  
-- Optimizing embeddings for a mix of structured (transactions) and unstructured (natural language queries) financial data.  
-- Handling complex queries like "How can I save for a $15,000 vacation in 18 months?" and generating actionable responses.  
-- Ensuring real-time performance while maintaining API rate limits for large datasets.  
-- Seamlessly integrating accessibility features for blind and visually impaired users.
-
----
-
-## **Accomplishments That We’re Proud Of** 🎉  
-- Created a fully functional AI banking assistant prototype in under 48 hours.  
-- Designed a savings advisor that delivers personalized and actionable financial insights.  
-- Successfully implemented accessibility features for users with disabilities.  
-- Provided a one-stop solution for all banking needs using state-of-the-art AI and voice technologies.
-
----
-
-## **What We Learned** 📚  
-- How to integrate multiple AI systems (RAG, TTS, STT) into a single cohesive solution.  
-- The importance of inclusivity in financial applications and designing for accessibility.  
-- Techniques for optimizing embeddings and ensuring consistent performance for large datasets.  
-
----
-
-## **What’s Next for AI-Powered Banking Assistant** 🚀  
-- **Enhanced Accessibility**: Expand support to include more languages, dialects, and regional banking features.  
-- **Advanced Budgeting Tools**: Introduce advanced features like customizable budgeting goals, loan calculators, and automated expense tracking.  
-- **Secure Banking**: Implement advanced security measures, including voiceprint authentication and encrypted data handling.  
-- **Financial Literacy**: Add educational modules to improve users’ understanding of personal finance and investment options.  
-
----
 
 ## **Built With** 🛠️  
 - **Python**: Backend development and AI processing.  
