@@ -1,0 +1,6 @@
+openai>=0.27.0
+numpy>=1.24.0
+matplotlib>=3.6.3
+urllib3<2,>=1.26.2
+nltk
+chromadb
