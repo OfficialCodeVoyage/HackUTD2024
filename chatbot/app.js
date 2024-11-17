@@ -17,6 +17,22 @@ ExpressWs(app);
 
 const PORT = process.env.PORT || 3000;
 
+let calls = [];
+// I am too lazy to rewrite this code, so I will copy from my test server
+
+function generateNewCall(caller) {
+  const id = 'call_' + Date.now();
+  const recipient = 'AI Model';
+  const startTime = new Date().toISOString();
+  const status = 'ongoing';
+  const summary = "deez nuts";
+  const transcript = [];
+  console.log('New call added:', { id, caller, recipient, startTime, status });
+
+  return { id, caller, recipient, startTime, status, summary, transcript };
+}
+
+
 app.post('/incoming', (req, res) => {
   try {
     const response = new VoiceResponse();
@@ -28,6 +44,39 @@ app.post('/incoming', (req, res) => {
   } catch (err) {
     console.log(err);
   }
+});
+
+// Enable CORS to allow cross-origin requests from your dashboard
+const cors = require('cors');
+
+app.use(cors({
+  origin: 'http://localhost:3000', // Replace with your dashboard's domain
+}));
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*'); // Replace '*' with dashboard's domain in production
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
+
+// Endpoint to get all calls
+app.get('/api/calls', (req, res) => {
+  res.json(calls);
+});
+
+// Endpoint to get a specific call by ID
+app.get('/api/calls/:id', (req, res) => {
+  const call = calls.find(c => c.id === req.params.id);
+  if (call) {
+    res.json(call);
+  } else {
+    res.status(404).json({ error: 'Call not found' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`External server listening at http://localhost:${port}`);
 });
 
 app.ws('/connection', (ws) => {
@@ -87,6 +136,7 @@ app.ws('/connection', (ws) => {
     transcriptionService.on('transcription', async (text) => {
       if (!text) { return; }
       console.log(`Interaction ${interactionCount} – STT -> GPT: ${text}`.yellow);
+      calls.transcript.push(text);
       gptService.completion(text, interactionCount);
       interactionCount += 1;
     });
